@@ -1,0 +1,46 @@
+services:
+  web:
+    build: "./api"
+    ports:
+      - "8000:8000"
+    networks:
+      - node-mongo
+    environment:
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_PORT=${MONGO_PORT}
+      - MONGO_DB=${MONGO_DB}
+      - TOKEN_SECRET=${TOKEN_SECRET}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+
+    depends_on:
+      - mongo
+      - redis
+  mongo:
+    command: mongod --quiet --logpath /dev/null
+    image: mongo
+    container_name: mongo-server
+    ports:
+      - "27017:27017"
+    networks:
+      - node-mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
+    volumes:
+      - ./data/mongo-init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+  redis:
+    image: redis
+    container_name: redis-server
+    ports:
+      - "6379:6379"
+    networks:
+      - node-mongo
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+networks:
+  node-mongo:
+    driver: bridge
