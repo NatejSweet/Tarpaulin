@@ -4,20 +4,23 @@ status() {
     printf -- "-----------------------------------------------------\n"
 }
 
+# url is
+url="http://localhost:8000"
+
 #get auth
 status "GETTING AUTH"
 login='{
-    "email": "admin@localhost",
+    "email": "example@example.com",
     "password": "hunter2"
 }'
-response=$(curl -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
+response=$(curl -i -X POST -H "Content-Type: application/json" -d "$login" $url/users/login | grep Authorization)
 
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
-    TOKEN=$response
-    printf "SUCCESS: Auth token received\n"
+    TOKEN=$(echo $response | cut -d ' ' -f 2)
+    printf "SUCCESS: Auth retrieved\n"
 fi
 
 post() {

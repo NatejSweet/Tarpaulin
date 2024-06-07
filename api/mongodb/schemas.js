@@ -1,4 +1,5 @@
-import { Schema } from 'mongoose';
+const Schema = require('mongoose').Schema;
+const model = require('mongoose').model;
 
 const UserS = new Schema({
     name: { type: String, required: true },
@@ -12,7 +13,8 @@ const CourseS = new Schema({
     number: { type: String, required: true },
     title: { type: String, required: true },
     term: { type: String, required: true },
-    instructorId: { type: Schema.Types.ObjectId, ref: 'User' }
+    instructorId: { type: Schema.Types.ObjectId, ref: 'User' },
+    students: [{ type: Schema.Types.ObjectId, ref: 'User' }]
 });
 
 const AssignmentS = new Schema({
@@ -31,7 +33,12 @@ const SubmissionS = new Schema({
 });
 
 // use the Schema to define a model
-export const User = mongoose.model('User', UserS);
-export const Course = mongoose.model('Course', CourseS);
-export const Assignment = mongoose.model('Assignment', AssignmentS);
-export const Submission = mongoose.model('Submission', SubmissionS);
+module.exports.User = model('User', UserS);
+module.exports.Course = model('Course', CourseS);
+module.exports.Assignment = model('Assignment', AssignmentS);
+module.exports.Submission = model('Submission', SubmissionS);
+
+module.exports.UserSchema = UserS;
+module.exports.CourseSchema = CourseS;
+module.exports.AssignmentSchema = AssignmentS;
+module.exports.SubmissionSchema = SubmissionS;

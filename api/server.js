@@ -1,6 +1,14 @@
 console.log("we are starting ");
+
+require("./mongodb/connect")().then(() => { //connect to mongodb
+  console.log("connected, uploading initial data");
+  require("./mongodb/upload")(); //upload data to mongodb
+});
+
 const express = require("express");
+const bodyParser = require("body-parser");
 const app = express();
+app.use(bodyParser.json());
 module.exports.app = app;
 const port = process.env.PORT;
 
@@ -61,13 +69,18 @@ const rateLimitMiddleware = async (req, res, next) => {
 const jwt = require("jsonwebtoken");
 const jwtVerificationMiddleware = (req, res, next) => {
   const token = req.header("Authorization");
+  
+  const loginroute = req.path === "/users/login";
+  if (loginroute) {
+    return next();
+  }
 
   if (!token) {
     return res.status(401).send("Access denied");
   }
 
   try {
-    const verified = jwt.verify(token, secret);
+    const verified = jwt.verify(token, process.env.TOKEN_SECRET);
     req.user = verified;
     next();
   } catch (err) {
@@ -76,7 +89,11 @@ const jwtVerificationMiddleware = (req, res, next) => {
 };
 
 app.use(jwtVerificationMiddleware); //keep first if we only allow loged in users to do anything
-app.use(rateLimitMiddleware); //make first if we want to allow not logged in users, but still limit
+//app.use(rateLimitMiddleware); //make first if we want to allow not logged in users, but still limit
+
+// add our routes
+require("./routes/users")(app);
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

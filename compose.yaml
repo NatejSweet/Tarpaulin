@@ -17,10 +17,11 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-
     depends_on:
       - mongo
       - redis
+    restart: on-failure
+
   mongo:
     command: mongod --quiet --logpath /dev/null
     image: mongo
@@ -33,7 +34,9 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
       - MONGO_INITDB_DATABASE=${MONGO_DB}
-      
+    volumes:
+      - ./api/mongodb/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
   redis:
     image: redis
     container_name: redis-server
@@ -42,6 +45,7 @@ services:
     networks:
       - node-mongo
     command: redis-server --requirepass ${REDIS_PASSWORD}
+    
 networks:
   node-mongo:
     driver: bridge
