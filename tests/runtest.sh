@@ -38,8 +38,8 @@ delete() {
 
 status "GETTING A USER WITHOUT AUTH"
 response=$(curl -X GET $url/users/1)
-if [ "$response" = "Forbidden" ]; then
-    printf "SUCCESS: 401 Forbidden\n"
+if [ "$response" = "Access denied" ]; then
+    printf "SUCCESS: 401 Access denied\n"
 else
     echo "FAILURE: $response"
     echo "FAILURE: 401 Forbidden"
@@ -52,7 +52,7 @@ user='{
     "role": "admin"
 }'
 status "POSTING A USER"
-response=$(post "$user" /users)
+response=$(curl -s -X POST -H "Content-Type: application/json" -d "$user" "$url/users")
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -61,8 +61,8 @@ else
 fi
 
 #get posted user
-status "GETTING POSTED USER"
-response=$(get /users/1)
+status "GETTING A USER"
+response=$(get "$password" /users/1)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1

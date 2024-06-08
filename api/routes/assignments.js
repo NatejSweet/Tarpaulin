@@ -1,26 +1,68 @@
 /* API endpoints related to Assignments.
  */
 
+const { Course } = require("../mongodb/schemas")
+
 
 /**
  * Create a new Assignment.
  * Create and store a new Assignment with specified data and adds it to the application's database.  Only an authenticated User with 'admin' role or an authenticated 'instructor' User whose ID matches the `instructorId` of the Course corresponding to the Assignment's `courseId` can create an Assignment.
 
  */
-app.post('/assignments', (req, res) => {
 
-    // Status code: 201
-    if (/* condition */) {
-    } else if (/* condition */) {
-        // Status code: 400
-    } else if (/* condition */) {
-        // Status code: 403
-    } else {
-        // unknown error
+
+function verifyAssignment(assignment){
+    if (!assignment || !assignment.course_Id || !assignment.title || !assignment.points || !assignment.due) {
+        return false
     }
-    res.send()
-    res.end()
-    return
+    return true
+
+}
+app.post('/assignments', (req, res) => {
+    if (!req.body || !req.body.assignment || !req.body.email || !req.body.class_Id) {
+        // Status code: 400
+        res.status(400)
+        res.send()
+        return
+    }
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    } else if (user.role != 'admin' || user.role != 'instructor') {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    const course = Course.findOne({_id: req.body.class_Id})
+    if (!course) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }
+    if (course.instructorId != user._id) {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    if (verifyAssignment(req.body.assignment)) {
+        // Status code: 201
+        Assignment.create(req.body.assignment)
+        Course.updateOne({_id: req.body.class_Id}, { $push: { assignments: assignment._id } } )
+        res.status(201)
+        res.send()
+        return
+    } else {
+        // Status code: 400
+        res.status(400)
+        res.send()
+        return
+    }
 })
 
 
@@ -31,17 +73,32 @@ app.post('/assignments', (req, res) => {
 
  */
 app.get('/assignments/{id}', (req, res) => {
-
-    // Status code: 200
-    if (/* condition */) {
-    } else if (/* condition */) {
-        // Status code: 404
-    } else {
-        // unknown error
+    if (!req.body || !req.body.email || !req.body.assignment_id) {
+        // Status code: 400
+        res.status(400)
+        res.send()
+        return
     }
-    res.send()
-    res.end()
-    return
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
+    const assignment = Assignment.findOne({_id: req.body.assignment_id})
+    if (!assignment) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }else {
+        // Status code: 200
+        res.status(200)
+        res.send(assignment)
+        return
+    }
+    
 })
 
 
@@ -52,21 +109,53 @@ app.get('/assignments/{id}', (req, res) => {
 
  */
 app.patch('/assignments/{id}', (req, res) => {
-
-    // Status code: 200
-    if (/* condition */) {
-    } else if (/* condition */) {
+    if (!req.body || !req.body.email || !req.body.assignment_id, !req.body.assignment) {
         // Status code: 400
-    } else if (/* condition */) {
-        // Status code: 403
-    } else if (/* condition */) {
-        // Status code: 404
-    } else {
-        // unknown error
+        res.status(400)
+        res.send()
+        return
     }
-    res.send()
-    res.end()
-    return
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
+    const course = Course.findOne({_id: assignment.courseId})
+    if (!course) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }
+    if (user.role != 'admin' || user.role != 'instructor' || course.instructorId != user._id) {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    const result = Assignment.updateOne(
+        {_id: req.body.assignment_id}, 
+        { 
+            $set: {
+            title: req.body.assignment.title, 
+            points: req.body.assignment.points, 
+            due: req.body.assignment.due
+            } 
+        }
+        );
+    if (result.nModified>0) {
+        // Status code: 200
+        res.status(200)
+        res.send()
+        return
+    } else {
+        // Status code: 500
+        res.status(500)
+        res.send()
+         return
+    }
 })
 
 
@@ -78,20 +167,45 @@ app.patch('/assignments/{id}', (req, res) => {
  */
 app.delete('/assignments/{id}', (req, res) => {
 
-    // Status code: 204
-    if (/* condition */) {
-    } else if (/* condition */) {
-        // Status code: 403
-    } else if (/* condition */) {
-        // Status code: 404
-    } else {
-        // unknown error
+    if (!req.body || !req.body.email || !req.body.assignment_id) {
+        // Status code: 400
+        res.status(400)
+        res.send()
+        return
     }
-    res.send()
-    res.end()
-    return
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
+    const course = Course.findOne({_id: assignment.courseId})
+    if (!course) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }
+    if (user.role != 'admin' || user.role != 'instructor' || course.instructorId != user._id) {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    const result = Assignment.delete({_id: req.body.assignment_id})
+    if (result.deletedCount>0) {
+        // Status code: 200
+        res.status(200)
+        res.send()
+        return
+    } else {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
 })
-
 
 
 /**
@@ -101,18 +215,46 @@ app.delete('/assignments/{id}', (req, res) => {
  */
 app.get('/assignments/{id}/submissions', (req, res) => {
 
-    // Status code: 200
-    if (/* condition */) {
-    } else if (/* condition */) {
-        // Status code: 403
-    } else if (/* condition */) {
-        // Status code: 404
-    } else {
-        // unknown error
+    if (!req.body || !req.body.email || !req.body.assignment_id) {
+        // Status code: 400
+        res.status(400)
+        res.send()
+        return
     }
-    res.send()
-    res.end()
-    return
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
+    const course = Course.findOne({_id: assignment.courseId})
+    if (!course) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }
+    if (user.role != 'admin' || user.role != 'instructor' || course.instructorId != user._id) {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    const submissions = Submission.find({
+        assignmentId: req.body.assignment_id
+    })
+    if (submissions) {
+        // Status code: 200
+        res.status(200)
+        res.send(submissions)
+        return
+    } else {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
 })
 
 
@@ -123,20 +265,52 @@ app.get('/assignments/{id}/submissions', (req, res) => {
 
  */
 app.post('/assignments/{id}/submissions', (req, res) => {
-
-    // Status code: 201
-    if (/* condition */) {
-    } else if (/* condition */) {
+    if (!req.body || !req.body.email || !req.body.assignment_id || !req.body.file) {
         // Status code: 400
-    } else if (/* condition */) {
-        // Status code: 403
-    } else if (/* condition */) {
-        // Status code: 404
-    } else {
-        // unknown error
+        res.status(400)
+        res.send()
+        return
     }
-    res.send()
-    res.end()
-    return
+    const user = User.findOne({email: req.body.email})
+    if (!user) {
+        // Status code: 500
+        res.status(500)
+        res.send()
+        return
+    }
+    const course = Course.findOne({_id: assignment.courseId})
+    if (!course) {
+        // Status code: 404
+        res.status(404)
+        res.send()
+        return
+    }
+    if (user.role != 'student' || !course.students.includes(user._id)) {
+        // Status code: 403
+        res.status(403)
+        res.send()
+        return
+    }
+    const submission = {
+        assignmentId: req.body.assignment_id,
+        studentId: user._id,
+        timestamp: new Date(),
+        grade: null,
+        file: req.body.file
+    }
+    Submission.create(submission, (err, newSubmission) => {
+        if (err) {
+          // handle error
+          console.error(err);
+          res.status(500).send();
+          return;
+        }else {
+        
+            // Status code: 201
+            res.status(201)
+            res.send(newSubmission)
+            return
+        }
+      });
 })
 
