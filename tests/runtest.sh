@@ -27,7 +27,7 @@ post() {
     curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$1" $url$2
 }
 get() {
-    curl -X GET -H "Authorization: Bearer $TOKEN" $url$1
+    curl -s -X GET "$url$1" -H "Authorization: Bearer $TOKEN"
 }
 put() {
     curl -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$1" $url$2
@@ -60,9 +60,9 @@ else
     printf "SUCCESS: User posted\n"
 fi
 
-#get posted user
+get posted user
 status "GETTING A USER"
-response=$(get "$password" /users/1)
+response=$(curl -s -X GET "$url/users/1" -H "Authorization Bearer $TOKEN")
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -71,7 +71,7 @@ else
 fi
 
 
-status "GETTIMG ALL COURSES"
+status "GETTING ALL COURSES"
 response=$(get /courses)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
