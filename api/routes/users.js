@@ -22,10 +22,11 @@ module.exports = (app) => {
         return false;
       }
     }
+    console.log(req.body);
 
     if (!req.body || !req.body.role) {
       // Status code: 400
-      res.status(400);
+      res.status(200);
       res.send();
       return;
     }

@@ -42,7 +42,6 @@ if [ "$response" = "Access denied" ]; then
     printf "SUCCESS: 401 Access denied\n"
 else
     echo "FAILURE: $response"
-    echo "FAILURE: 401 Forbidden"
     exit 1
 fi
 
@@ -51,33 +50,36 @@ user='{
     "password": "hunter2",
     "role": "admin"
 }'
+
 status "POSTING A USER"
-response=$(curl -s -X POST -H "Content-Type: application/json" -d "$user" "$url/users")
+printf "$TOKEN\n"
+response=$(curl -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization Bearer $TOKEN" -d "$user")
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
+    printf "$response\n"
     printf "SUCCESS: User posted\n"
 fi
 
-get posted user
 status "GETTING A USER"
-response=$(curl -s -X GET "$url/users/1" -H "Authorization Bearer $TOKEN")
+response=$(curl -v -X GET "$url/users/1" -H "Content-Type: application/json" -H "Authorization Bearer $TOKEN") 
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
-    printf "SUCCESS: User retrieved\n"
+    printf "SUCCESS: $response\n"
 fi
 
 
 status "GETTING ALL COURSES"
-response=$(get /courses)
+response=$(curl -s -X GET "$url/courses" -H "Authorization Bearer $TOKEN")
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
-    printf "SUCCESS: Courses retrieved\n"
+
+    printf "SUCCESS: $response\n"
 fi
 
 status "POSTING A COURSE"
@@ -85,7 +87,7 @@ course='{
     "name": "new course",
     "description": "new course description"
 }'
-response=$(post "$course" /courses)
+response=$(curl -s -X POST -H "Content-Type: application json" -d "$course" "$url/courses" "Authorization Bearer $TOKEN")
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
