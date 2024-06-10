@@ -357,18 +357,37 @@ module.exports = (app) => {
 
  */
   app.get("/courses/{id}/roster", async (req, res) => {
-    // // Status code: 200
-    // if (/* condition */) {
-    // } else if (/* condition */) {
-    //     // Status code: 403
-    // } else if (/* condition */) {
-    //     // Status code: 404
-    // } else {
-    //     // unknown error
-    // }
-    res.send(404);
-    res.end();
-    return;
+    if (!req.body || !req.body.user) {
+      // Status code: 400
+      res.status(400).send();
+      return;
+    }
+    const user = await User.findOne({ _id: req.body.user });
+    const course = await Course.findOne({ _id: req.params.id });
+    if (
+      user.role !== "admin" &&
+      (user.role !== "instructor" || course.instructorId !== user._id)
+    ) {
+      // Status code: 403
+      res.status(403).send();
+      return;
+    }
+    const students = await User.find({ _id: { $in: course.students } });
+    if (!students) {
+      // Status code: 500
+      res.status(500).send();
+      return;
+    }
+    let csv = "Name,ID,Email\n";
+    for (let student of students) {
+      csv += `${student.name},${student._id},${student.email}\n`;
+    }
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="' + "download-" + Date.now() + '.csv"'
+    );
+    res.status(200).send(csv);
   });
 
   /**
