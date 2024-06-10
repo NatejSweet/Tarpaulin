@@ -410,12 +410,10 @@ module.exports = (app) => {
         return;
       }
       // Status code: 200
-      console.log("course assign:", assignments);
       res.status(200).send({ assignments: assignments });
       return;
     } catch (err) {
       // Status code: 500
-      console.log('course assign:', err);
       res.status(500).send();
       return;
     }
@@ -425,7 +423,7 @@ module.exports = (app) => {
     try {
       if (!req.body || !req.user) {
         // Status code: 400
-        console.log('course assign post : no body or user');
+        console.log("course assign post : no body or user");
         res.status(400).send();
         return;
       }
@@ -433,7 +431,7 @@ module.exports = (app) => {
 
       if (!user) {
         // Status code: 403
-        console.log('course assign post : user not found');
+        console.log("course assign post : user not found");
         res.status(403).send();
         return;
       }
@@ -442,14 +440,14 @@ module.exports = (app) => {
 
       if (!course) {
         // Status code: 404
-        console.log('course assign post : course not found');
+        console.log("course assign post : course not found");
         res.status(404).send();
         return;
       }
 
       if (user.role !== "admin" && course.instructorId !== user._id) {
         // Status code: 403
-        console.log('course assign post : not admin or instructor');
+        console.log("course assign post : not admin or instructor");
         res.status(403).send();
         return;
       }
@@ -458,7 +456,7 @@ module.exports = (app) => {
         const assignment = new Assignment(req.body);
         if (assignment.validateSync() !== undefined) {
           // Status code: 400
-          console.log('course assign post : invalid assignment');
+          console.log("course assign post : invalid assignment");
           res.status(400).send();
           return;
         }
@@ -468,15 +466,15 @@ module.exports = (app) => {
         return;
       } else {
         // Status code: 400
-        console.log('course assign post : invalid assignment');
+        console.log("course assign post : invalid assignment");
         res.status(400).send();
         return;
       }
     } catch (err) {
       // Status code: 500
-      console.log('course assign post :', err);
+      console.log("course assign post :", err);
       res.status(500).send();
       return;
     }
-  });    
+  });
 };

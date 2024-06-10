@@ -1,7 +1,5 @@
 /* API endpoints related to Assignments.
  */
-
-const { Course } = require("../mongodb/schemas");
 module.exports = (app) => {
   const User = require("../mongodb/schemas").User;
   const Course = require("../mongodb/schemas").Course;
@@ -14,69 +12,64 @@ module.exports = (app) => {
  * Create and store a new Assignment with specified data and adds it to the application's database.  Only an authenticated User with 'admin' role or an authenticated 'instructor' User whose ID matches the `instructorId` of the Course corresponding to the Assignment's `courseId` can create an Assignment.
 
  */
-
-  function verifyAssignment(assignment) {
-    if (
-      !assignment ||
-      !assignment.course_Id ||
-      !assignment.title ||
-      !assignment.points ||
-      !assignment.due
-    ) {
-      return false;
-    }
-    return true;
-  }
-  app.post("/assignments", (req, res) => {
+  app.post("/assignments", async (req, res) => {
+    console.log(req.body);
     if (
       !req.body ||
-      !req.body.assignment ||
-      !req.body.user ||
-      !req.body.class_Id
+      !req.user ||
+      !req.body.courseId ||
+      !req.body.title ||
+      !req.body.points ||
+      !req.body.due
     ) {
+      console.log("error");
       // Status code: 400
       res.status(400);
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.body.user });
+    const user = await User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
       res.send();
       return;
-    } else if (user.role != "admin" || user.role != "instructor") {
-      // Status code: 403
-      res.status(403);
-      res.send();
-      return;
     }
-    const course = Course.findOne({ _id: req.body.class_Id });
+    const course = await Course.findOne({ _id: req.body.courseId });
     if (!course) {
       // Status code: 404
       res.status(404);
       res.send();
       return;
     }
-    if (course.instructorId != user._id) {
+    if (
+      user.role !== "admin" &&
+      (user.role !== "instructor" || course.instructorId !== user._id)
+    ) {
       // Status code: 403
       res.status(403);
       res.send();
       return;
     }
-    if (verifyAssignment(req.body.assignment)) {
-      // Status code: 201
-      Assignment.create(req.body.assignment);
-      Course.updateOne(
-        { _id: req.body.class_Id },
-        { $push: { assignments: assignment._id } }
-      );
-      res.status(201);
+    const assignment = new Assignment(req.body);
+    const validationError = assignment.validateSync();
+
+    if (validationError) {
+      // Status code: 400
+      console.log("error");
+      res.status(400);
       res.send();
       return;
+    }
+    const createdAssignment = await assignment.save();
+    if (createdAssignment) {
+      // Status code: 201
+      res.status(201);
+      res.send(createdAssignment);
+      return;
     } else {
-      // Status code: 400
-      res.status(400);
+      // Status code: 500
+      res.status(500);
       res.send();
       return;
     }
@@ -88,13 +81,13 @@ module.exports = (app) => {
 
  */
   app.get("/assignments/{id}", (req, res) => {
-    if (!req.body || !req.body.user || !req.body.assignment_id) {
+    if (!req.body || !req.user || !req.body.assignment_id) {
       // Status code: 400
       res.status(400);
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.body.user });
+    const user = User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
@@ -130,7 +123,7 @@ module.exports = (app) => {
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.body.user });
+    const user = User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
@@ -189,7 +182,7 @@ module.exports = (app) => {
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.body.user });
+    const user = User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
@@ -234,13 +227,13 @@ module.exports = (app) => {
  */
   app.get("/assignments/{id}/submissions", (req, res) => {
     try {
-      if (!req.body || !req.body.user || !req.body.assignment_id) {
+      if (!req.body || !req.user || !req.body.assignment_id) {
         // Status code: 400
         res.status(400);
         res.send();
         return;
       }
-      const user = User.findOne({ _id: req.body.user });
+      const user = User.findOne({ _id: req.user });
       if (!user) {
         // Status code: 500
         res.status(500);
@@ -290,18 +283,13 @@ module.exports = (app) => {
 
  */
   app.post("/assignments/{id}/submissions", (req, res) => {
-    if (
-      !req.body ||
-      !req.body.user ||
-      !req.body.assignment_id ||
-      !req.body.file
-    ) {
+    if (!req.body || !req.user || !req.body.assignment_id || !req.body.file) {
       // Status code: 400
       res.status(400);
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.body.user });
+    const user = User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);

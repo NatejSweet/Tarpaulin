@@ -195,25 +195,31 @@ responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq 200 ]; then
     printf "SUCCESS: $responseCode\n"
     printf "SUCCESS: $responseBody\n"
-    exit 1
 else
     printf "FAILURE: $responseCode\n"
     exit 1
 fi
 
-satus "POSTING AN ASSIGNMENT"
+status "POSTING AN ASSIGNMENT"
+printf "$dataFilledCourse\n"
 assignment='{
-    "name": "new assignment",
-    "description": "new assignment description",
-    "due_date": "2021-12-31",
-    "points": 100
+    "courseId": "'$dataFilledCourse'",
+    "title": "new assignment",  
+    "points": 10,
+    "due": "2022-12-31"
 }'
-response=$(post "$assignment" /courses/1/assignments)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
+printf "$assignment\n"
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$assignment" )
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+    assignmentId=$(echo $responseBody | jq -r '._id')
     exit 1
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 status "GETTING AN ASSIGNMENT"
