@@ -47,7 +47,7 @@ fi
 
 user='{
     "name": "new user",
-    "email": "new2@user.com",
+    "email": "new3@user.com",
     "password": "hunter2sadffff",
     "role": "admin"
 }'
@@ -61,8 +61,19 @@ else
     exit 1
 fi
 
+status "GETTING ALL USERS"
+response=$(get /users)
+
+if [ -z "$response" ]; then
+    printf "FAILURE: Empty response\n"
+    exit 1
+else
+    printf "SUCCESS: $response\n"
+    uid=$(echo $response | jq -r '.[0].id')
+fi
+
 status "GETTING A USER"
-response=$(curl -s -X GET "$url/users/1" -H "Content-Type: application/json" -H "Authorization Bearer $TOKEN") 
+response=$(get /users/$uid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -72,7 +83,7 @@ fi
 
 
 status "GETTING ALL COURSES"
-response=$(curl -s -X GET "$url/courses" -H "Authorization Bearer $TOKEN")
+response=$(get /courses)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -95,7 +106,7 @@ else
 fi
 
 status "GETTING A COURSE"
-response=$(get /courses/1)
+response=$(get /courses/$cid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -108,7 +119,7 @@ course='{
     "name": "updated course",
     "description": "updated course description"
 }'
-response=$(put "$course" /courses/1)
+response=$(put "$course" /courses/$cid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -117,7 +128,7 @@ else
 fi
 
 status "DELETING A COURSE"
-response=$(delete /courses/1)
+response=$(delete /courses/$cid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -126,7 +137,7 @@ else
 fi
 
 status "GETTING ALL STUDENTS IN A COURSE"
-response=$(get /courses/1/students)
+response=$(get /courses/$cid/students)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -138,7 +149,7 @@ status "POSTING AN UPDATE TO A COURSE'S ENROLLMENT"
 status "FIX MEEEEEEE"
 
 status "GETTING STUDEN ROSTER"
-response=$(get /courses/1/roster)
+response=$(get /courses/$cid/students)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -147,7 +158,7 @@ else
 fi
 
 status "GETTING ALL ASSIGNMENTS IN A COURSE"
-response=$(get /courses/1/assignments)
+response=$(get /courses/$cid/assignments)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -162,7 +173,7 @@ assignment='{
     "due_date": "2021-12-31",
     "points": 100
 }'
-response=$(post "$assignment" /courses/1/assignments)
+response=$(post "$assignment" /courses/$cid/assignments)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -171,7 +182,7 @@ else
 fi
 
 status "GETTING AN ASSIGNMENT"
-response=$(get /assignments/1)
+response=$(get /assignments/$aid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -186,7 +197,7 @@ assignment='{
     "due_date": "2021-12-31",
     "points": 100
 }'
-response=$(put "$assignment" /assignments/1)
+response=$(put "$assignment" /assignments/$aid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -195,7 +206,7 @@ else
 fi
 
 status "DELETING AN ASSIGNMENT"
-response=$(delete /assignments/1)
+response=$(delete /assignments/$aid)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -204,7 +215,7 @@ else
 fi
 
 status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT"
-response=$(get /assignments/1/submissions)
+response=$(get /assignments/$aid/submissions)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -218,7 +229,7 @@ submission='{
     "grade": 100,
     "feedback": "good job"
 }'
-response=$(post "$submission" /assignments/1/submissions)
+response=$(post "$submission" /assignments/$aid/submissions)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1

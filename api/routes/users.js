@@ -173,4 +173,22 @@ module.exports = (app) => {
       return;
     }
   });
+
+  app.get("/users/", async (req, res) => {
+    //fetch all users for admins only
+    if (!req.user) {
+      console.log("No user");
+      res.status(401).send();
+      return;
+    } 
+    if (req.user.role !== "admin") {
+      console.log("Not admin: " + req.user.role);
+      res.status(403).send();
+      return;
+    }
+
+    const users = await User.find();
+    res.status(200).send(users);
+  });
+
 };
