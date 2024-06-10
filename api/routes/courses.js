@@ -34,7 +34,6 @@ module.exports = (app) => {
         return;
       }
     } catch (err) {
-      console.error(err);
       res.status(500).send();
       return;
     }
@@ -76,7 +75,6 @@ module.exports = (app) => {
       let error = newCourse.validateSync();
       if (error) {
         // Status code: 400
-        console.log(error);
         res.status(400).send();
         return;
       }
@@ -91,7 +89,6 @@ module.exports = (app) => {
         return;
       }
     } catch (err) {
-      console.error(err);
       // Status code: 500
       res.status(500).send();
       return;
@@ -123,7 +120,6 @@ module.exports = (app) => {
         return;
       }
     } catch (err) {
-      console.error(err);
       res.status(500).send();
       return;
     }
@@ -180,7 +176,6 @@ module.exports = (app) => {
         let error = newCourse.validateSync();
         if (error) {
           // Status code: 400
-          console.log(error);
           res.status(400).send();
           return;
         }
@@ -198,12 +193,12 @@ module.exports = (app) => {
           res.status(200).send();
         }
       } catch (err) {
-        console.error(err);
         res.status(500).send();
+        return;
       }
     } catch (err) {
-      console.error(err);
       res.status(500).send();
+      return;
     }
   });
 
@@ -212,14 +207,14 @@ module.exports = (app) => {
  * Completely removes the data for the specified Course, including all enrolled students, all Assignments, etc.  Only an authenticated User with 'admin' role can remove a Course.
 
  */
-  app.delete("/courses/{id}", async (req, res) => {
+  app.delete("/courses/:id", async (req, res) => {
     try {
-      if (!req.body || !req.body.user) {
+      if (!req.body || !req.user) {
         // Status code: 400
         res.status(400).send();
         return;
       }
-      const user = await User.findOne({ _id: req.body.user });
+      const user = await User.findOne({ _id: req.user });
       if (user.role != "admin") {
         // Status code: 403
         res.status(403).send();
@@ -231,12 +226,7 @@ module.exports = (app) => {
         res.status(404).send();
         return;
       }
-      const result = await Course.delete({ _id: req.params.id });
-      if (!result.deletedCount > 0) {
-        // Status code: 500
-        res.status(500).send();
-        return;
-      }
+      const result = await Course.deleteOne({ _id: req.params.id });
       const students = await User.find({ courses: req.params.id });
       for (let student of students) {
         student.courses = student.courses.filter(
@@ -247,16 +237,20 @@ module.exports = (app) => {
       const assignments = await Assignment.deleteMany({
         courseId: req.params.id,
       });
-      if (assignments.deletedCount > 0) {
-        // Status code: 200
-        res.status(200).send();
-      } else {
+      if (!assignments.acknowledged || result.deletedCount < 1) {
+        console.log(assignments);
+        console.log(result);
         // Status code: 500
         res.status(500).send();
+        return;
+      } else {
+        // Status code: 200
+        res.status(200).send();
+        return;
       }
     } catch (err) {
-      console.error(err);
       res.status(500).send();
+      return;
     }
   });
 
@@ -286,7 +280,6 @@ module.exports = (app) => {
       res.status(200).send({ students: course.students });
       return;
     } catch (err) {
-      console.error(err);
       // Status code: 500
       res.status(500).send();
       return;
@@ -344,8 +337,8 @@ module.exports = (app) => {
         }
       }
     } catch (err) {
-      console.error(err);
       res.status(500).send();
+      return;
     }
     res.status(200).send();
     return;
@@ -426,9 +419,9 @@ module.exports = (app) => {
       res.status(200).send({ assignments: assignments });
       return;
     } catch (err) {
-      console.error(err);
       // Status code: 500
       res.status(500).send();
+      return;
     }
   });
 };

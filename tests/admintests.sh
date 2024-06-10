@@ -17,7 +17,7 @@ put() {
     curl -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$1" $url$2
 }
 delete() {
-    curl -X DELETE -H "Authorization: Bearer $TOKEN" $url$1
+    curl -X DELETE -H "Authorization: Bearer $TOKEN" $url/$1
 }
 
 
@@ -94,7 +94,6 @@ course='{
 
 }' #the instructor id is a fake id
 
-printf "$courseId\n"
 response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$course" "$url/courses/$courseId")
 responseCode=$(echo "$response" | tail -n1)
 if [ $responseCode -eq 200 ]; then
@@ -105,12 +104,13 @@ else
 fi
 
 status "DELETING A COURSE"
-response=$(delete /courses/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
-else
+response=$(curl -s -w "\n%{http_code}" -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" $url/courses/$courseId)
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
     printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
 status "GETTING ALL STUDENTS IN A COURSE"
@@ -120,6 +120,7 @@ if [ -z "$response" ]; then
     exit 1
 else
     printf "SUCCESS: $response\n"
+    exit 1
 fi
 
 status "POSTING AN UPDATE TO A COURSE'S ENROLLMENT"
