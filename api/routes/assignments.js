@@ -1,3 +1,5 @@
+const { assignments } = require("../mongodb/initial_database");
+
 /* API endpoints related to Assignments.
  */
 module.exports = (app) => {
@@ -13,7 +15,6 @@ module.exports = (app) => {
 
  */
   app.post("/assignments", async (req, res) => {
-    console.log(req.body);
     if (
       !req.body ||
       !req.user ||
@@ -61,11 +62,11 @@ module.exports = (app) => {
       res.send();
       return;
     }
-    const createdAssignment = await assignment.save();
+    const createdAssignment = await Assignment.create(assignment);
     if (createdAssignment) {
       // Status code: 201
       res.status(201);
-      res.send(createdAssignment);
+      res.send({ _id: createdAssignment._id });
       return;
     } else {
       // Status code: 500
@@ -80,21 +81,23 @@ module.exports = (app) => {
  * Returns summary data about the Assignment, excluding the list of Submissions.
 
  */
-  app.get("/assignments/{id}", (req, res) => {
-    if (!req.body || !req.user || !req.body.assignment_id) {
+  app.get("/assignments/:id", async (req, res) => {
+    if (!req.body || !req.user) {
       // Status code: 400
       res.status(400);
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.user });
+    const user = await User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
       res.send();
       return;
     }
-    const assignment = Assignment.findOne({ _id: req.body.assignment_id });
+    const assignment = await Assignment.findOne({
+      _id: req.body.assignment_id,
+    });
     if (!assignment) {
       // Status code: 404
       res.status(404);
@@ -113,24 +116,27 @@ module.exports = (app) => {
  * Performs a partial update on the data for the Assignment.  Note that submissions cannot be modified via this endpoint.  Only an authenticated User with 'admin' role or an authenticated 'instructor' User whose ID matches the `instructorId` of the Course corresponding to the Assignment's `courseId` can update an Assignment.
 
  */
-  app.patch("/assignments/{id}", (req, res) => {
+  app.patch("/assignments/:id", async (req, res) => {
     if (
-      (!req.body || !req.body.email || !req.body.assignment_id,
-      !req.body.assignment)
+      !req.body ||
+      !req.body.courseId ||
+      !req.body.title ||
+      !req.body.points ||
+      !req.body.due
     ) {
       // Status code: 400
       res.status(400);
       res.send();
       return;
     }
-    const user = User.findOne({ _id: req.user });
+    const user = await User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 500
       res.status(500);
       res.send();
       return;
     }
-    const course = Course.findOne({ _id: assignment.courseId });
+    const course = await Course.findOne({ _id: req.body.courseId });
     if (!course) {
       // Status code: 404
       res.status(404);
@@ -138,17 +144,16 @@ module.exports = (app) => {
       return;
     }
     if (
-      user.role != "admin" ||
-      user.role != "instructor" ||
-      course.instructorId != user._id
+      user.role !== "admin" &&
+      (user.role !== "instructor" || course.instructorId !== user._id)
     ) {
       // Status code: 403
       res.status(403);
       res.send();
       return;
     }
-    const result = Assignment.updateOne(
-      { _id: req.body.assignment_id },
+    const result = await Assignment.updateOne(
+      { _id: req.query.id },
       {
         $set: {
           title: req.body.assignment.title,
@@ -157,10 +162,10 @@ module.exports = (app) => {
         },
       }
     );
-    if (result.nModified > 0) {
+    if (result.modifiedCount > 0) {
       // Status code: 200
       res.status(200);
-      res.send();
+      res.send(assignment);
       return;
     } else {
       // Status code: 500

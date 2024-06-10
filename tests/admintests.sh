@@ -216,34 +216,37 @@ if [ $responseCode -eq 201 ]; then
     printf "SUCCESS: $responseCode\n"
     printf "SUCCESS: $responseBody\n"
     assignmentId=$(echo $responseBody | jq -r '._id')
-    exit 1
 else
     printf "FAILURE: $responseCode\n"
     exit 1
 fi
 
 status "GETTING AN ASSIGNMENT"
-response=$(get /assignments/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 status "UPDATING AN ASSIGNMENT"
 assignment='{
-    "name": "updated assignment",
-    "description": "updated assignment description",
-    "due_date": "2021-12-31",
-    "points": 100
+    "courseId": "'$dataFilledCourse'",
+    "title": "new updated assignment",  
+    "points": 20,
+    "due": "2022-12-31"
 }'
-response=$(put "$assignment" /assignments/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+response=$( curl -s -w "\n%{http_code}" -X PATCH "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$assignment")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 status "DELETING AN ASSIGNMENT"
