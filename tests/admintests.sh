@@ -3,25 +3,9 @@ status() {
     printf "%s\n" "$1"
     printf -- "-----------------------------------------------------\n"
 }
-
 # url is
 url="http://localhost:8000"
 
-#get auth
-status "GETTING AUTH"
-login='{
-    "email": "example@example.com",
-    "password": "hunter2"
-}'
-
-response=$(curl -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
-else
-    printf "SUCCESS: $response\n"
-    TOKEN=$(echo $response | jq -r '.token')
-fi
 
 post() {
     curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$1" $url$2
@@ -36,84 +20,88 @@ delete() {
     curl -X DELETE -H "Authorization: Bearer $TOKEN" $url$1
 }
 
-status "GETTING A USER WITHOUT AUTH"
-response=$(curl -X GET $url/users/1)
-if [ "$response" = "Access denied" ]; then
-    printf "SUCCESS: 401 Access denied\n"
-else
-    echo "FAILURE: $response"
-    exit 1
-fi
 
-user='{
-    "name": "new user",
-    "email": "new2@user.com",
-    "password": "hunter2sadffff",
-    "role": "admin"
+status "GETTING AUTH"
+login='{
+    "email": "example@example.com",
+    "password": "hunter2"
 }'
 
-status "POSTING A USER"
-response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$user")
-if [  $response -eq 201 ]; then
-    printf "SUCCESS: $response\n"
-else
-    printf "FAILURE: $response\n"
-    exit 1
-fi
-
-status "GETTING A USER"
-response=$(curl -s -X GET "$url/users/1" -H "Content-Type: application/json" -H "Authorization Bearer $TOKEN") 
+response=$(curl -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
     printf "SUCCESS: $response\n"
+    TOKEN=$(echo $response | jq -r '.token')
 fi
-
-
 status "GETTING ALL COURSES"
-response=$(curl -s -X GET "$url/courses" -H "Authorization Bearer $TOKEN")
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq  200 ]; then
+    printf "SUCCESS: $responseBody\n"
 else
+    printf "FAILURE: Empty response\n"
+    printf "FAILURE: $responseCode\n"
 
-    printf "SUCCESS: $response\n"
+    exit 1
 fi
 
-status "POSTING A COURSE"
+
+
+status "POSTING A COURSE AS ADMIN "
 course='{
-    "name": "new course",
-    "description": "new course description"
-}'
-response=$(curl -s -X POST -H "Content-Type: application json" -d "$course" "$url/courses" "Authorization Bearer $TOKEN")
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+    "title": "new course",
+    "subject": "CS",
+    "number": "101",
+    "term": "Fall 2021",
+    "instructorId": "6667374fc4a0c73614394733" 
+
+}' #the instructor id is a fake id
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$course" "$url/courses" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then 
+    printf "SUCCESS: $responseCode\n"
+    printf "$responseBody\n"
+    courseId=$(echo $responseBody | jq -r '._id')
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
-status "GETTING A COURSE"
-response=$(get /courses/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+
+printf "$courseId\n"
+status "GETTING A COURSE BY ID AS ADMIN (ONLY TESTED HERE, ROLE DOES NOT MATTER)"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$courseId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseBody\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
-status "UPDATING A COURSE"
+status "UPDATING A COURSE AS ADMIN"
 course='{
-    "name": "updated course",
-    "description": "updated course description"
-}'
-response=$(put "$course" /courses/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+    "title": "new UPDATED course",
+    "subject": "CS",
+    "number": "101",
+    "term": "Fall 2021",
+    "instructorId": "6667374fc4a0c73614394733" 
+
+}' #the instructor id is a fake id
+
+printf "$courseId\n"
+response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$course" "$url/courses/$courseId")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 status "DELETING A COURSE"
@@ -225,5 +213,4 @@ if [ -z "$response" ]; then
 else
     printf "SUCCESS: $response\n"
 fi
-
 

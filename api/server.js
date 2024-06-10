@@ -69,7 +69,6 @@ const rateLimitMiddleware = async (req, res, next) => {
 //json web token
 const jwt = require("jsonwebtoken");
 const jwtVerificationMiddleware = async (req, res, next) => {
-  console.log(req.headers);
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
   if (req.path === "/users/login") {
@@ -94,6 +93,8 @@ app.use(jwtVerificationMiddleware); //keep first if we only allow loged in users
 
 // add our routes
 require("./routes/users")(app);
+require("./routes/courses")(app);
+require("./routes/assignments")(app);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
