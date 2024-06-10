@@ -69,31 +69,22 @@ const rateLimitMiddleware = async (req, res, next) => {
 //json web token
 const jwt = require("jsonwebtoken");
 const jwtVerificationMiddleware = async (req, res, next) => {
+  console.log(req.headers);
   const authHeader = req.headers["authorization"];
-  console.log("Authorization Header: ", authHeader);
   const token = authHeader && authHeader.split(" ")[1];
-
-  console.log("Authorization Header: ", authHeader);
-  console.log("Extracted Token: ", token);
-
   if (req.path === "/users/login") {
-    console.log("Login route accessed");
     return next();
   }
 
   if (!token) {
-    console.log("No token found in request");
     return res.status(401).send("Access denied");
   }
 
   try {
-    console.log("Token found, attempting verification");
     const verified = await jwt.verify(token, process.env.TOKEN_SECRET);
     req.user = verified;
-    console.log("Token successfully verified, proceeding");
     next();
   } catch (err) {
-    console.error("Token verification failed:", err);
     res.status(403).send("Invalid token");
   }
 };

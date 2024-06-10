@@ -13,14 +13,13 @@ login='{
     "email": "example@example.com",
     "password": "hunter2"
 }'
-response=$(curl -i -X POST -H "Content-Type: application/json" -d "$login" $url/users/login | grep Authorization)
-
+response=$(curl -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
 else
-    TOKEN=$(echo $response | cut -d ' ' -f 2)
-    printf "SUCCESS: Auth retrieved\n"
+    printf "SUCCESS: $response\n"
+    TOKEN=$(echo $response | jq -r '.token')
 fi
 
 post() {
@@ -47,19 +46,19 @@ fi
 
 user='{
     "name": "new user",
-    "password": "hunter2",
+    "email": "new@user.com",
+    "password": "hunter2sadffff",
     "role": "admin"
 }'
 
 status "POSTING A USER"
-printf "$TOKEN\n"
-response=$(curl -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization Bearer $TOKEN" -d "$user")
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
+response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$user")
+if [  $response -eq 201 ]; then
+    printf "SUCCESS: $response\n"
     exit 1
 else
-    printf "$response\n"
-    printf "SUCCESS: User posted\n"
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
 status "GETTING A USER"

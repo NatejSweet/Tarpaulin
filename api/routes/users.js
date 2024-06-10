@@ -12,7 +12,7 @@ module.exports = (app) => {
      * Create and store a new application User with specified data and adds it to the application's database.  Only an authenticated User with 'admin' role can create users with the 'admin' or 'instructor' roles.
 
     */
-  app.post("/users", (req, res) => {
+  app.post("/users", async (req, res) => {
     function canCreateUser(creator, role) {
       if (role === "admin" || role === "instructor") {
         return creator === "admin";
@@ -22,33 +22,39 @@ module.exports = (app) => {
         return false;
       }
     }
-    console.log(req.body);
 
     if (!req.body || !req.body.role) {
       // Status code: 400
-      res.status(200);
-      res.send();
+      res.status(400).send();
+      return;
+    }
+    let user = await User.findOne({ _id: req.user._id });
+    if (!user) {
+      // Status code: 403
+      res.status(403).send();
       return;
     }
 
-    if (canCreateUser(User.findOne({ password: req.user }), req.body.role)) {
+    if (canCreateUser(user.role, req.body.role)) {
       // create user
-      if (User.validateSync(req.body)) {
-        // Status code: 201
-        User.create(req.body);
-        res.status(201);
+      let newUser = new User(req.body);
+      let error = newUser.validateSync();
+
+      if (!error) {
+        // create user
+        await User.create(req.body);
+        res.status(201).send();
+        return;
       } else {
         // Status code: 400
-        res.status(400);
+        res.status(400).send();
+        return;
       }
     } else {
       // Status code: 403
-      res.status(403);
+      res.status(403).send();
+      return;
     }
-
-    res.send();
-    res.end();
-    return;
   });
 
   /**
@@ -75,7 +81,6 @@ module.exports = (app) => {
       res.send();
       return;
     } else if (!user.password) {
-      console.log("no password found");
       // Status code: 400
       res.status(400);
       res.send();
@@ -86,10 +91,8 @@ module.exports = (app) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       const token = jwt.sign({ _id: user._id }, process.env.TOKEN_SECRET);
 
-      res.header("Authorization", token);
-      res.send();
+      res.status(200).send({ token: token });
     } else {
-      console.log("passwords do not match");
       // Status code: 400
       res.status(400);
       res.send();
