@@ -13,6 +13,7 @@ login='{
     "email": "example@example.com",
     "password": "hunter2"
 }'
+
 response=$(curl -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
@@ -46,7 +47,7 @@ fi
 
 user='{
     "name": "new user",
-    "email": "new@user.com",
+    "email": "new2@user.com",
     "password": "hunter2sadffff",
     "role": "admin"
 }'
@@ -55,7 +56,6 @@ status "POSTING A USER"
 response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$user")
 if [  $response -eq 201 ]; then
     printf "SUCCESS: $response\n"
-    exit 1
 else
     printf "FAILURE: $response\n"
     exit 1
