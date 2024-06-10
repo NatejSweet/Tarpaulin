@@ -35,23 +35,27 @@ module.exports = (app) => {
       !req.body
     ) {
       // Status code: 400
+      console.log("Invalid request");
       res.status(400).send();
       return;
     }
     let user = await User.findOne({ _id: req.user });
     if (!user) {
       // Status code: 403
+      console.log("User not found");
       res.status(403).send();
       return;
     }
     let existingUser = await User.findOne({ email: req.body.email });
     if (existingUser) {
       // Status code: 409
+      console.log("User already exists");
       res.status(409).send();
       return;
     }
 
     if (canCreateUser(user.role, req.body.role)) {
+      console.log("Creating user");
       // create user
       req.body.password = await bcrypt.hash(req.body.password, 10);
       let newUser = new User(req.body);
@@ -60,18 +64,22 @@ module.exports = (app) => {
       if (!error) {
         // create user
         let createdUser = await User.create(req.body);
+        console.log("User created: " + createdUser);
         res.status(201).send({ _id: createdUser._id });
         return;
       } else {
+        console.log("Error creating user");
         // Status code: 400
         res.status(400).send();
         return;
       }
     } else {
       // Status code: 403
+      console.log("Cannot create user");
       res.status(403).send();
       return;
     }
+
   });
 
   /**
@@ -144,8 +152,7 @@ module.exports = (app) => {
       res.send();
       return;
     }
-    console.log(u);
-    if (u._id.toString() !== req.user._id.toString()) {
+    if (u._id.toString() !== req.user._id.toString() && u.role !== "admin") {
       // Status code: 403
       res.status(403);
       res.send();
@@ -168,26 +175,20 @@ module.exports = (app) => {
       return;
     } else {
       console.log("Admin");
-      // Status code: 404
-      res.status(404).send();
+      res.status(200);
+      res.send(u);
       return;
     }
   });
 
   app.get("/users/", async (req, res) => {
     //fetch all users for admins only
-    if (!req.user) {
-      console.log("No user");
-      res.status(401).send();
-      return;
-    } 
-    if (req.user.role !== "admin") {
-      console.log("Not admin: " + req.user.role);
+    let user = await User.findOne({ _id: req.user });
+    if (!user || user.role !== "admin") {
       res.status(403).send();
       return;
     }
-
-    const users = await User.find();
+    let users = await User.find({});
     res.status(200).send(users);
   });
 

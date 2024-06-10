@@ -1,6 +1,8 @@
 /* API endpoints related to Courses.
  */
 
+const { Assignment } = require("../mongodb/schemas");
+
 /**
  * Fetch the list of all Courses.
  * Returns the list of all Courses.  This list should be paginated.  The Courses returned should not contain the list of students in the Course or the list of Assignments for the Course.
@@ -377,6 +379,7 @@ module.exports = (app) => {
 
  */
   app.get("/courses/:id/assignments", async (req, res) => {
+    console.log("GET /courses/:id/assignments");
     try {
       if (!req.body || !req.user) {
         console.log("No body or user");
@@ -402,16 +405,78 @@ module.exports = (app) => {
       }).select("_id");
       if (!assignments) {
         // Status code: 500
+        console.log("Assignments not found");
         res.status(500).send();
         return;
       }
       // Status code: 200
+      console.log("course assign:", assignments);
       res.status(200).send({ assignments: assignments });
       return;
     } catch (err) {
       // Status code: 500
+      console.log('course assign:', err);
       res.status(500).send();
       return;
     }
   });
+
+  app.post("/courses/:id/assignments", async (req, res) => {
+    try {
+      if (!req.body || !req.user) {
+        // Status code: 400
+        console.log('course assign post : no body or user');
+        res.status(400).send();
+        return;
+      }
+      const user = await User.findOne({ _id: req.user });
+
+      if (!user) {
+        // Status code: 403
+        console.log('course assign post : user not found');
+        res.status(403).send();
+        return;
+      }
+
+      const course = await Course.findOne({ _id: req.params.id });
+
+      if (!course) {
+        // Status code: 404
+        console.log('course assign post : course not found');
+        res.status(404).send();
+        return;
+      }
+
+      if (user.role !== "admin" && course.instructorId !== user._id) {
+        // Status code: 403
+        console.log('course assign post : not admin or instructor');
+        res.status(403).send();
+        return;
+      }
+
+      if (req.body) {
+        const assignment = new Assignment(req.body);
+        if (assignment.validateSync() !== undefined) {
+          // Status code: 400
+          console.log('course assign post : invalid assignment');
+          res.status(400).send();
+          return;
+        }
+        assignment.courseId = course._id;
+        await assignment.save();
+        res.status(201).send({ _id: assignment._id });
+        return;
+      } else {
+        // Status code: 400
+        console.log('course assign post : invalid assignment');
+        res.status(400).send();
+        return;
+      }
+    } catch (err) {
+      // Status code: 500
+      console.log('course assign post :', err);
+      res.status(500).send();
+      return;
+    }
+  });    
 };
