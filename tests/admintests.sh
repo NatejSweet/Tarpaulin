@@ -41,6 +41,7 @@ responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq  200 ]; then
     printf "SUCCESS: $responseBody\n"
+    dataFilledCourse=$(echo "$responseBody" | jq -r '.courses[0]._id')
 else
     printf "FAILURE: Empty response\n"
     printf "FAILURE: $responseCode\n"
@@ -114,34 +115,90 @@ else
 fi
 
 status "GETTING ALL STUDENTS IN A COURSE"
-response=$(get /courses/1/students)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
-else
+printf "$dataFilledCourse\n"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$dataFilledCourse/students" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
     printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
     exit 1
 fi
 
-status "POSTING AN UPDATE TO A COURSE'S ENROLLMENT"
-status "FIX MEEEEEEE"
-
-status "GETTING STUDEN ROSTER"
-response=$(get /courses/1/roster)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+status "POSTING A NEW STUDENT USER TO ADD TO A COURSE"
+student='{
+    "name": "student",
+    "email": "stu@ent.com",
+    "password": "hunter7",
+    "role": "student"
+    }'
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$student" "$url/users")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $response\n"
 else
-    printf "SUCCESS: $reponse\n"
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+studentId=$(echo $responseBody | jq -r '._id')
+printf "$studentId\n"
+
+status "ADDING A STUDENT TO A COURSE"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"adds": ["'"$studentId"'"]}' "$url/courses/$dataFilledCourse/students")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+    printf "enrollment: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "DELETING A STUDENT FROM A COURSE"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"removes": ["'"$studentId"'"]}' "$url/courses/$dataFilledCourse/students")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "enrollment: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+printf "_____________________________________________________\n"
+printf "ADDING STUDENT BACK FOR ROSTER TEST\m"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"adds": ["'"$studentId"'"]}' "$url/courses/$dataFilledCourse/students")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "STUDENT RE-ADD SUCCESS: $response\n"
+else
+    printf "STUDENT RE-ADD FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING STUDENT ROSTER"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$dataFilledCourse/roster" -H "Content-Type: applicaiton/json" -H "Authorization: Bearer $TOKEN" --output roster.csv)
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
 status "GETTING ALL ASSIGNMENTS IN A COURSE"
-response=$(get /courses/1/assignments)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$dataFilledCourse/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
     exit 1
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 satus "POSTING AN ASSIGNMENT"

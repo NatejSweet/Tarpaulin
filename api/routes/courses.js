@@ -259,18 +259,19 @@ module.exports = (app) => {
  * Returns a list containing the User IDs of all students currently enrolled in the Course.  Only an authenticated User with 'admin' role or an authenticated 'instructor' User whose ID matches the `instructorId` of the Course can fetch the list of enrolled students.
 
  */
-  app.get("/courses/{id}/students", async (req, res) => {
+  app.get("/courses/:id/students", async (req, res) => {
     try {
-      if (!req.body || !req.body.user) {
+      if (!req.body || !req.user) {
         // Status code: 400
         res.status(400).send();
         return;
       }
-      const user = await User.findOne({ _id: req.body.user });
+      const user = await User.findOne({ _id: req.user });
       const course = await Course.findOne({ _id: req.params.id });
       if (
-        user.role != "admin" ||
-        (user.role != "instructor" && course.instructorId != user._id)
+        user.role != "admin" &&
+        user.role != "instructor" &&
+        course.instructorId != user._id
       ) {
         // Status code: 403
         res.status(403).send();
@@ -292,16 +293,13 @@ module.exports = (app) => {
 
  */
   app.post("/courses/:id/students", async (req, res) => {
+    console.log(req.body);
     try {
-      if (
-        !req.body ||
-        !req.body.user ||
-        (!req.body.adds && !req.body.removes)
-      ) {
+      if (!req.body || !req.user || !(req.body.adds || req.body.removes)) {
         res.status(400).send();
         return;
       }
-      const user = await User.findOne({ _id: req.body.user });
+      const user = await User.findOne({ _id: req.user });
       const course = await Course.findOne({ _id: req.params.id });
       if (
         user.role !== "admin" &&
@@ -313,35 +311,25 @@ module.exports = (app) => {
       if (req.body.adds) {
         course.students.push(...req.body.adds);
         await course.save();
-        for (let studentId of req.body.adds) {
-          let student = await User.findOne({ _id: studentId });
-          if (student) {
-            student.courses.push(req.params.id);
-            await student.save();
-          }
-        }
       }
       if (req.body.removes) {
+        console.log("Before removal: ", course.students); // Print the students array before removal
+
         course.students = course.students.filter(
-          (student) => !req.body.removes.includes(student)
+          (student) => !req.body.removes.includes(student.toString())
         );
+
+        console.log("After removal: ", course.students); // Print the students array after removal
+
         await course.save();
-        for (let studentId of req.body.removes) {
-          let student = await User.findOne({ _id: studentId });
-          if (student) {
-            student.courses = student.courses.filter(
-              (course) => course != req.params.id
-            );
-            await student.save();
-          }
-        }
       }
+      res.status(200).send({ students: course.students });
+      return;
     } catch (err) {
+      console.log(err);
       res.status(500).send();
       return;
     }
-    res.status(200).send();
-    return;
   });
 
   /**
@@ -349,13 +337,13 @@ module.exports = (app) => {
  * Returns a CSV file containing information about all of the students currently enrolled in the Course, including names, IDs, and email addresses.  Only an authenticated User with 'admin' role or an authenticated 'instructor' User whose ID matches the `instructorId` of the Course can fetch the course roster.
 
  */
-  app.get("/courses/{id}/roster", async (req, res) => {
-    if (!req.body || !req.body.user) {
+  app.get("/courses/:id/roster", async (req, res) => {
+    if (!req.body || !req.user) {
       // Status code: 400
       res.status(400).send();
       return;
     }
-    const user = await User.findOne({ _id: req.body.user });
+    const user = await User.findOne({ _id: req.user });
     const course = await Course.findOne({ _id: req.params.id });
     if (
       user.role !== "admin" &&
@@ -388,14 +376,15 @@ module.exports = (app) => {
  * Returns a list containing the Assignment IDs of all Assignments for the Course.
 
  */
-  app.get("/courses/{id}/assignments", async (req, res) => {
+  app.get("/courses/:id/assignments", async (req, res) => {
     try {
-      if (!req.body || !req.body.user) {
+      if (!req.body || !req.user) {
+        console.log("No body or user");
         // Status code: 400
         res.status(400).send();
         return;
       }
-      const user = await User.findOne({ _id: req.body.user });
+      const user = await User.findOne({ _id: req.user });
       if (!user) {
         // Status code: 403
         res.status(403).send();
@@ -403,6 +392,7 @@ module.exports = (app) => {
       }
       const course = await Course.findOne({ _id: req.params.id });
       if (!course) {
+        console.log("Course not found");
         // Status code: 404
         res.status(404).send();
         return;
