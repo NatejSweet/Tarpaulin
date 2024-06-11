@@ -49,6 +49,25 @@ else
     exit 1
 fi
 
+status "POSTING A USER"
+user='{
+    "name": "new user",
+    "email": "sosleepy@tired.com",
+    "password": "honkshooo",
+    "role": "instructor"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$user" "$url/users" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "$responseBody\n"
+    instructorId=$(echo $responseBody | jq -r '._id')
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
 
 
 status "POSTING A COURSE AS ADMIN "
@@ -57,9 +76,9 @@ course='{
     "subject": "CS",
     "number": "101",
     "term": "Fall 2021",
-    "instructorId": "6667374fc4a0c73614394733" 
+    "instructorId": "'$instructorId'" 
 
-}' #the instructor id is a fake id
+}'
 response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$course" "$url/courses" -H "Authorization: Bearer $TOKEN")
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
@@ -73,8 +92,9 @@ else
 fi
 
 
+
+status "GETTING A COURSE BY ID AS ADMIN"
 printf "$courseId\n"
-status "GETTING A COURSE BY ID AS ADMIN (ONLY TESTED HERE, ROLE DOES NOT MATTER)"
 response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$courseId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
@@ -91,11 +111,11 @@ course='{
     "subject": "CS",
     "number": "101",
     "term": "Fall 2021",
-    "instructorId": "6667374fc4a0c73614394733" 
+    "instructorId": "'$instructorId'" 
 
-}' #the instructor id is a fake id
+}'
 
-response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$course" "$url/courses/$courseId")
+response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$course" "$url/courses/$dataFilledCourse")
 responseCode=$(echo "$response" | tail -n1)
 if [ $responseCode -eq 200 ]; then
     printf "SUCCESS: $responseCode\n"
@@ -115,7 +135,6 @@ else
 fi
 
 status "GETTING ALL STUDENTS IN A COURSE"
-printf "$dataFilledCourse\n"
 response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$dataFilledCourse/students" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
 responseCode=$(echo "$response" | tail -n1)
 if [ $responseCode -eq 200 ]; then
@@ -128,7 +147,7 @@ fi
 status "POSTING A NEW STUDENT USER TO ADD TO A COURSE"
 student='{
     "name": "student",
-    "email": "stu@ent.com",
+    "email": "stuuuu@ent.com",
     "password": "hunter7",
     "role": "student"
     }'
@@ -249,35 +268,42 @@ else
     exit 1
 fi
 
-status "DELETING AN ASSIGNMENT"
-response=$(delete /assignments/1)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+status "POSTING A SUBMISSION"
+submission='{
+    "student_id": "'$studentId'",
+    "assignment_id": "'$assignmentId'",
+    "timestamp": "2022-12-31",
+    "grade": 10,
+    "file": "file"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments/$assignmentId/submissions" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$submission")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+    submissionId=$(echo $responseBody | jq -r '._id')
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
 
 status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT"
-response=$(get /assignments/1/submissions)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
-else
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId/submissions" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
     printf "SUCCESS: $response\n"
-fi
-status "POSTING A SUBMISSION"
-submission='{
-    "student_id": 1,
-    "assignment_id": 1,
-    "grade": 100,
-    "feedback": "good job"
-}'
-response=$(post "$submission" /assignments/1/submissions)
-if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
+status "DELETING AN ASSIGNMENT"
+response=$(curl -s -w "\n%{http_code}" -X DELETE "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi

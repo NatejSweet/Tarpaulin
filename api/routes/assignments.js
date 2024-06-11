@@ -23,7 +23,6 @@ module.exports = (app) => {
       !req.body.points ||
       !req.body.due
     ) {
-      console.log("error");
       // Status code: 400
       res.status(400);
       res.send();
@@ -45,7 +44,7 @@ module.exports = (app) => {
     }
     if (
       user.role !== "admin" &&
-      (user.role !== "instructor" || course.instructorId !== user._id)
+      course.instructorId.toString() !== user._id.toString()
     ) {
       // Status code: 403
       res.status(403);
@@ -57,7 +56,6 @@ module.exports = (app) => {
 
     if (validationError) {
       // Status code: 400
-      console.log("error");
       res.status(400);
       res.send();
       return;
@@ -82,7 +80,6 @@ module.exports = (app) => {
 
  */
   app.get("/assignments/:id", async (req, res) => {
-    console.log("get assignment: ", req.params.id);
     if (!req.body || !req.user) {
       console.log("error: no body or user");
       // Status code: 400
@@ -108,7 +105,6 @@ module.exports = (app) => {
       res.send();
       return;
     } else {
-      console.log("assignment: ", assignment);
       // Status code: 200
       res.status(200);
       res.send(assignment);
@@ -153,7 +149,7 @@ module.exports = (app) => {
     }
     if (
       user.role !== "admin" &&
-      (user.role !== "instructor" || course.instructorId !== user._id)
+      course.instructorId.toString() !== user._id.toString()
     ) {
       console.log("error: not authorized");
       // Status code: 403
@@ -171,7 +167,6 @@ module.exports = (app) => {
         },
       }
     );
-    console.log("modified count: ", result.modifiedCount);
     if (result.modifiedCount > 0) {
       // Status code: 200
       console.log("updated assignment: ", result);
@@ -201,11 +196,16 @@ module.exports = (app) => {
       res.status(500);
       res.send();
       return;
-    } else {
-      console.log("user: ", user);
     }
 
     const assignment = await Assignment.findOne({ _id: req.params.id });
+    if (!assignment) {
+      // Status code: 404
+      console.log("error: assignment not found");
+      res.status(404);
+      res.send();
+      return;
+    }
 
     const course = await Course.findOne({ _id: assignment.courseId });
     if (!course) {
@@ -217,15 +217,15 @@ module.exports = (app) => {
     }
     if (
       user.role != "admin" &&
-      user.role != "instructor" &&
-      course.instructorId != user._id
+      course.instructorId.toString() != user._id.toString()
     ) {
       // Status code: 403
       console.log("error: not authorized, ", user.role != "admin");
+      res.status(403);
       res.send();
       return;
     }
-    
+
     const result = await Assignment.deleteOne({ _id: req.params.id });
 
     if (result.deletedCount > 0) {
@@ -259,7 +259,7 @@ module.exports = (app) => {
         res.send();
         return;
       }
-      
+
       const user = await User.findOne({ _id: req.user });
       if (!user) {
         // Status code: 500
@@ -278,8 +278,7 @@ module.exports = (app) => {
       }
       if (
         user.role != "admin" &&
-        user.role != "instructor" &&
-        course.instructorId != user._id
+        course.instructorId.toString() != user._id.toString()
       ) {
         // Status code: 403
         console.log("error: not authorized");
@@ -304,7 +303,6 @@ module.exports = (app) => {
         return;
       }
     } catch (error) {
-      console.log("error: ", error);
       console.error(error);
       res.status(500).send();
     }
@@ -316,7 +314,7 @@ module.exports = (app) => {
 
  */
   app.post("/assignments/:id/submissions", async (req, res) => {
-   
+    console.log("create submission: ", req.params.id);
     const assignment = await Assignment.findOne({ _id: req.params.id });
     if (!assignment) {
       // Status code: 404
@@ -347,7 +345,10 @@ module.exports = (app) => {
       res.send();
       return;
     }
-    if ((user.role != "student" || !course.students.includes(user._id)) && user.role != "admin") {
+    if (
+      (user.role != "student" || !course.students.includes(user._id)) &&
+      user.role != "admin"
+    ) {
       // Status code: 403
       console.log("error: not authorized");
       res.status(403);
@@ -361,7 +362,7 @@ module.exports = (app) => {
       grade: null,
       file: req.body.file,
     };
-    
+
     try {
       const sub = new Submission(submission);
       const newSubmission = await sub.save();

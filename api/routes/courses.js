@@ -15,6 +15,7 @@ module.exports = (app) => {
   const Assignment = require("../mongodb/schemas").Assignment;
   const Submission = require("../mongodb/schemas").Submission;
   const mongoose = require("mongoose");
+  const { ObjectId } = require("mongodb");
 
   app.get("/courses", async (req, res) => {
     try {
@@ -159,15 +160,16 @@ module.exports = (app) => {
         res.status(500).send();
         return;
       }
-      const course = await Course.findOne({ _id: req.params.id }).select(
-        "subject number title term instructorId"
-      );
+      const course = await Course.findOne({ _id: req.params.id });
       if (!course) {
         // Status code: 404
         res.status(404).send();
         return;
       }
-      if (user.role != "admin" && !course.instructorId.equals(user._id)) {
+      if (
+        user.role !== "admin" &&
+        course.instructorId.toString() !== user._id.toString()
+      ) {
         // Status code: 403
 
         res.status(403).send();
@@ -187,7 +189,7 @@ module.exports = (app) => {
           { _id: req.params.id },
           updateData
         );
-        if (!result.modifiedCount > 0) {
+        if (result.modifiedCount < 1) {
           // Status code: 500
           res.status(500).send();
         } else {
@@ -195,10 +197,12 @@ module.exports = (app) => {
           res.status(200).send();
         }
       } catch (err) {
+        console.log(err);
         res.status(500).send();
         return;
       }
     } catch (err) {
+      console.log(err);
       res.status(500).send();
       return;
     }
@@ -240,8 +244,6 @@ module.exports = (app) => {
         courseId: req.params.id,
       });
       if (!assignments.acknowledged || result.deletedCount < 1) {
-        console.log(assignments);
-        console.log(result);
         // Status code: 500
         res.status(500).send();
         return;
@@ -271,9 +273,8 @@ module.exports = (app) => {
       const user = await User.findOne({ _id: req.user });
       const course = await Course.findOne({ _id: req.params.id });
       if (
-        user.role != "admin" &&
-        user.role != "instructor" &&
-        course.instructorId != user._id
+        user.role !== "admin" &&
+        course.instructorId.toString() !== user._id.toString()
       ) {
         // Status code: 403
         res.status(403).send();
@@ -295,7 +296,6 @@ module.exports = (app) => {
 
  */
   app.post("/courses/:id/students", async (req, res) => {
-    console.log(req.body);
     try {
       if (!req.body || !req.user || !(req.body.adds || req.body.removes)) {
         res.status(400).send();
@@ -303,9 +303,13 @@ module.exports = (app) => {
       }
       const user = await User.findOne({ _id: req.user });
       const course = await Course.findOne({ _id: req.params.id });
+      if (!user || !course) {
+        res.status(404).send();
+        return;
+      }
       if (
         user.role !== "admin" &&
-        (user.role !== "instructor" || course.instructorId !== user._id)
+        course.instructorId.toString() !== user._id.toString()
       ) {
         res.status(403).send();
         return;
@@ -346,10 +350,20 @@ module.exports = (app) => {
       return;
     }
     const user = await User.findOne({ _id: req.user });
+    if (!user) {
+      // Status code: 403
+      res.status(403).send();
+      return;
+    }
     const course = await Course.findOne({ _id: req.params.id });
+    if (!course) {
+      // Status code: 404
+      res.status(404).send();
+      return;
+    }
     if (
       user.role !== "admin" &&
-      (user.role !== "instructor" || course.instructorId !== user._id)
+      course.instructorId.toString() !== user._id.toString()
     ) {
       // Status code: 403
       res.status(403).send();

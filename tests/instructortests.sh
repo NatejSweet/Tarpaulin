@@ -29,7 +29,7 @@ response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/jso
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq 200 ]; then
-    TOKEN=$( echo $responseBody | jq -r '.token')
+    ADMINTOKEN=$( echo $responseBody | jq -r '.token')
 else
     printf "ADMIN FAILED TO LOG IN: $responseCode\n"
     exit 1
@@ -37,11 +37,11 @@ fi
 printf "POSTING A NEW INSTRUCTOR\n"
 user='{
     "name": "new user",
-    "email": "newInst@user.com",
+    "email": "newInst2@user.com",
     "password": "thenewguy",
     "role": "instructor"
 }'
-response=$(curl -s -w "\n%{http_code}" -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$user")
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/users" -H "Content-Type: application/json" -H "Authorization: Bearer $ADMINTOKEN" -d "$user")
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq 201 ]; then
@@ -60,13 +60,49 @@ course='{
     "instructorId": "'$userId'" 
 
 }'
-response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$course" "$url/courses" -H "Authorization: Bearer $TOKEN")
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$course" "$url/courses" -H "Authorization: Bearer $ADMINTOKEN")
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq 201 ]; then 
     instructorCourseId=$(echo $responseBody | jq -r '._id')
 else
     printf "COURSE NOT POSTED: $responseCode\n"
+    exit 1
+fi
+
+status "POSTING A NEW STUDENT USER TO ADD TO A COURSE"
+student='{
+    "name": "student",
+    "email": "stu@ent.com",
+    "password": "hunter7",
+    "role": "student"
+    }'
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $ADMINTOKEN" -d "$student" "$url/users")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+studentId=$(echo $responseBody | jq -r '._id')
+printf "$studentId\n"
+
+status "POSTING A NEW ASSIGNMENT FOR A COURSE"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "new assignment",  
+    "points": 10,
+    "due": "2022-12-31"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $ADMINTOKEN" -d "$assignment" )
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    assignmentId=$(echo $responseBody | jq -r '._id')
+else
+    printf "FAILURE: $responseCode\n"
     exit 1
 fi
 
@@ -83,11 +119,11 @@ if [ -z "$response" ]; then
     exit 1
 else
     printf "SUCCESS: $response\n"
-    TOKEN=$(echo $response | jq -r '.token')
+    WRONG_INSTRUCTOR_TOKEN=$(echo $response | jq -r '.token')
 fi
 
 status "GETTING ALL COURSES"
-response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses" -H "Authorization: Bearer $TOKEN")
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
 responseCode=$(echo "$response" | tail -n1)
 responseBody=$(echo "$response" | head -n-1)
 if [ $responseCode -eq  200 ]; then
@@ -100,6 +136,8 @@ else
     exit 1
 fi
 
+
+
 status "POSTING A COURSE AS INSTRUCTOR IS FORBIDDEN"
 course='{
     "title": "new course",
@@ -110,7 +148,7 @@ course='{
     "instructorId": "6667374fc4a0c73614394733" 
 
 }' #the instructor id is a fake id
-response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN"  -d "$course" "$url/courses" )
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN"  -d "$course" "$url/courses" )
 responseCode=$(echo "$response" | tail -n1)
 if [ $responseCode -eq 403 ]; then 
     printf "SUCCESS: $responseCode\n"
@@ -129,7 +167,7 @@ course='{
     "instructorId": "6667374fc4a0c73614394733" 
 
 }' #the instructor id is a fake id
-response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$course" "$url/courses/$courseId")
+response=$(curl -s -w "\n%{http_code}" -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" -d "$course" "$url/courses/$instructorCourseId")
 responseCode=$(echo "$response" | tail -n1)
 if [ $responseCode -eq 403 ]; then
     printf "SUCCESS: $responseCode\n"
@@ -138,11 +176,9 @@ else
     exit 1
 fi
 
-
-
 status "LOGGING IN AS NEW INSTRUCTOR"
 login='{
-    "email": "newInst@user.com",
+    "email": "newInst2@user.com",
     "password": "thenewguy"
 }'
 response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d "$login" $url/users/login)
@@ -172,6 +208,298 @@ if [ $responseCode -eq 200 ]; then
 else
     printf "FAILURE: $responseCode\n"
     exit 1
+fi 
+
+status "DELETING A COURSE AS INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer $TOKEN" "$url/courses/$instructorCourseId")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
 fi
+
+status "ADDING A STUDENT TO A COURSE AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"adds": ["'"$studentId"'"]}' "$url/courses/$instructorCourseId/students")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+    printf "enrollment: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "ADDING A STUDENT TO A COURSE AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" -d '{"adds": ["'"$studentId"'"]}' "$url/courses/$instructorCourseId/students")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "GETTING ALL STUDENTS IN A COURSE AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/students" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+    printf "enrollment: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING ALL STUDENTS IN A COURSE AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/students" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "DELETING A STUDENT FROM A COURSE AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"removes": ["'"$studentId"'"]}' "$url/courses/$instructorCourseId/students")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "enrollment: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "DELETING A STUDENT FROM A COURSE AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" -d '{"removes": ["'"$studentId"'"]}' "$url/courses/$instructorCourseId/students")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING STUDENT ROSTER AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/roster" -H "Content-Type: applicaiton/json" -H "Authorization: Bearer $TOKEN" --output roster.csv)
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING STUDENT ROSTER AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/roster" -H "Content-Type: applicaiton/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" --output roster.csv)
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING ALL ASSIGNMENTS IN A COURSE AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING ALL ASSIGNMENTS IN A COURSE AS WRONG INSTRUCTOR IS ALLOWED"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/courses/$instructorCourseId/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "POSTING A NEW ASSIGNMENT FOR A COURSE AS CORRECT INSTRUCTOR"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "newer assignment",  
+    "points": 100,
+    "due": "2022-12-31"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$assignment" ) 
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+    assignmentId=$(echo $responseBody | jq -r '._id')
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+
+status "POSTING AN ASSIGNMENT AS CORRECT INSTRUCTOR"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "new assignment",  
+    "points": 10,
+    "due": "2022-12-31"
+}'
+printf "$assignment\n"
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$assignment" )
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 201 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+    assignmentId=$(echo $responseBody | jq -r '._id')
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "POSTING AN ASSIGNMENT AS WRONG INSTRUCTOR IS FORBIDDEN"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "new assignment",  
+    "points": 10,
+    "due": "2022-12-31"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" -d "$assignment" )
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "GETTING AN ASSIGNMENT AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+responseBody=$(echo "$response" | head -n-1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+    printf "SUCCESS: $responseBody\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "GETTING AN ASSIGNMENT AS WRONG INSTRUCTOR IS ALLOWED"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "UPDATING AN ASSIGNMENT AS CORRECT INSTRUCTOR"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "new updated assignment",  
+    "points": 20,
+    "due": "2022-12-31"
+}'
+response=$( curl -s -w "\n%{http_code}" -X PATCH "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$assignment")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "UPDATING AN ASSIGNMENT AS WRONG INSTRUCTOR IS FORBIDDEN"
+assignment='{
+    "courseId": "'$instructorCourseId'",
+    "title": "new updated assignment",  
+    "points": 20,
+    "due": "2022-12-31"
+}'
+response=$( curl -s -w "\n%{http_code}" -X PATCH "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN" -d "$assignment")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "POSTING A SUBMISSION AS INSTRUCTOR IS FORBIDDEN"
+submission='{
+    "student_id": "'$studentId'",
+    "assignment_id": "'$assignmentId'",
+    "timestamp": "2022-12-31",
+    "grade": 10,
+    "file": "file"
+}'
+response=$(curl -s -w "\n%{http_code}" -X POST "$url/assignments/$assignmentId/submissions" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$submission")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $responseCode\n"
+else
+    printf "FAILURE: $responseCode\n"
+    exit 1
+fi
+
+status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId/submissions" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X GET "$url/assignments/$assignmentId/submissions" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+status "DELETING AN ASSIGNMENT AS WRONG INSTRUCTOR IS FORBIDDEN"
+response=$(curl -s -w "\n%{http_code}" -X DELETE "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_INSTRUCTOR_TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 403 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+status "DELETING AN ASSIGNMENT AS CORRECT INSTRUCTOR"
+response=$(curl -s -w "\n%{http_code}" -X DELETE "$url/assignments/$assignmentId" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN")
+responseCode=$(echo "$response" | tail -n1)
+if [ $responseCode -eq 200 ]; then
+    printf "SUCCESS: $response\n"
+else
+    printf "FAILURE: $response\n"
+    exit 1
+fi
+
+
+
+
+
+
 
 
