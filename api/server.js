@@ -89,7 +89,7 @@ const jwtVerificationMiddleware = async (req, res, next) => {
 };
 
 app.use(jwtVerificationMiddleware); //keep first if we only allow loged in users to do anything
-//app.use(rateLimitMiddleware); //make first if we want to allow not logged in users, but still limit
+app.use(rateLimitMiddleware); //make first if we want to allow not logged in users, but still limit
 
 // add our routes
 require("./routes/users")(app);
