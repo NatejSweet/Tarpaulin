@@ -193,16 +193,6 @@ fi
 
 printf "aid: $aid\n"
 
-
-status "DELETING A COURSE"
-response=$(delete /courses/$cid)
-if [ -z "$response" ]; then
-    printf "SUCCESS: delete does not return anything\n"
-else
-    printf "FAILURE: $response\n"
-    exit 1
-fi
-
 status "GETTING AN ASSIGNMENT"
 response=$(get /assignments/$aid)
 if [ -z "$response" ]; then
@@ -214,12 +204,38 @@ fi
 
 status "UPDATING AN ASSIGNMENT"
 assignment='{
-    "name": "updated assignment",
-    "description": "updated assignment description",
-    "due_date": "2021-12-31",
-    "points": 100
+    "courseId": "'$cid'",
+    "title": "updated assignment",
+    "points": 100,
+    "due": "2021-12-31"
 }'
 response=$(patch "$assignment" /assignments/$aid)
+if [ -z "$response" ]; then
+    printf "FAILURE: Empty response\n"
+    exit 1
+else
+    printf "SUCCESS: $response\n"
+fi
+
+
+status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT"
+response=$(get /assignments/$aid/submissions)
+if [ -z "$response" ]; then
+    printf "FAILURE: Empty response\n"
+    exit 1
+else
+    printf "SUCCESS: $response\n"
+fi
+status "POSTING A SUBMISSION"
+submission='{
+    "assignmentId": "'$aid'",
+    "studentId": "'$uid'",
+    "timestamp": "2021-12-31",
+    "grade": 100,
+    "file": "file"
+}'
+
+response=$(post "$submission" /assignments/$aid/submissions)
 if [ -z "$response" ]; then
     printf "FAILURE: Empty response\n"
     exit 1
@@ -230,10 +246,10 @@ fi
 status "DELETING AN ASSIGNMENT"
 response=$(delete /assignments/$aid)
 if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+    printf "SUCCESS: delete does not return anything\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
 # try to get the deleted assignment
@@ -246,27 +262,23 @@ else
     exit 1
 fi
 
-status "GETTING ALL SUBMISSIONS FOR AN ASSIGNMENT"
-response=$(get /assignments/$aid/submissions)
+status "DELETING A COURSE"
+response=$(delete /courses/$cid)
 if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+    printf "SUCCESS: delete does not return anything\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $response\n"
+    exit 1
 fi
-status "POSTING A SUBMISSION"
-submission='{
-    "student_id": 1,
-    "assignment_id": 1,
-    "grade": 100,
-    "feedback": "good job"
-}'
-response=$(post "$submission" /assignments/$aid/submissions)
+
+# try to get the deleted course
+status "GETTING A DELETED COURSE"
+response=$(get /courses/$cid)
 if [ -z "$response" ]; then
-    printf "FAILURE: Empty response\n"
-    exit 1
+    printf "SUCCESS: Empty response\n"
 else
-    printf "SUCCESS: $response\n"
+    printf "FAILURE: $response\n"
+    exit 1
 fi
 
 
